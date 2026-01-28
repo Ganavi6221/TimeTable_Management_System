@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Timetable Automation System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+        }
+        .theme-light {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #2c3e50;
+        }
+        .theme-dark {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
+            color: #ecf0f1;
+        }
+        .card {
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .timetable-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1px;
+        }
+        .time-slot {
+            min-height: 60px;
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #ddd;
+            background: #f9f9f9;
+            transition: transform 0.2s;
+        }
+        .time-slot:hover {
+            transform: scale(1.02);
+            background: #e3f2fd;
+        }
+        .theme-dark .time-slot {
+            background: #34495e;
+            border-color: #5d6d7e;
+            color: #ecf0f1;
+        }
+        .theme-dark .time-slot:hover {
+            background: #2c3e50;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 16px;
+            border-radius: 8px;
+            color: white;
+            max-width: 300px;
+        }
+        .success { background: #4caf50; }
+        .error { background: #f44336; }
+        .info { background: #2196f3; }
+    </style>
+</head>
+<body class="theme-dark">
+    <div id="notifications"></div>
+
+    <header class="bg-white bg-opacity-20 backdrop-blur-md p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-white">Class Timetable Automation System</h1>
+            <div class="flex items-center space-x-4">
+                <button id="theme-toggle" class="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition">Toggle Theme</button>
+                <button id="clear-data" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Clear All Data</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-6 fade-in">
+        <div class="flex mb-6">
+            <button id="admin-tab" class="tab-btn px-6 py-3 bg-blue-600 text-white rounded-l font-semibold hover:bg-blue-700 transition">Admin Panel</button>
+            <button id="student-tab" class="tab-btn px-6 py-3 bg-gray-600 text-white rounded-r font-semibold hover:bg-gray-700 transition">Student View</button>
+            <button id="faculty-tab" class="tab-btn px-6 py-3 bg-gray-600 text-white rounded-r font-semibold hover:bg-gray-700 transition">Faculty View</button>
+        </div>
+
+        <section id="admin-panel" class="card bg-white bg-opacity-20 p-6 rounded-lg mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Admin Panel</h2>
+            <p class="mb-4 text-gray-700">Manage inputs and generate timetables automatically to ensure no conflicts.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Course Name</label>
+                    <input id="course-name" type="text" class="w-full px-3 py-2 border rounded" placeholder="e.g., Math 101">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Faculty</label>
+                    <input id="faculty-name" type="text" class="w-full px-3 py-2 border rounded" placeholder="e.g., Dr. Smith">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Room</label>
+                    <input id="room-name" type="text" class="w-full px-3 py-2 border rounded" placeholder="e.g., Room 101">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Duration (hours)</label>
+                    <input id="duration" type="number" class="w-full px-3 py-2 border rounded" placeholder="1-3" min="1" max="3" value="1">
+                </div>
+            </div>
+
+            <div class="mb-4 flex space-x-2">
+                <button id="add-course" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">Add Course</button>
+                <button id="add-faculty" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">Add Faculty</button>
+                <button id="add-room" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">Add Room</button>
+            </div>
+
+            <button id="generate-timetable" class="px-6 py-3 bg-purple-600 text-white rounded font-semibold mb-6 hover:bg-purple-700 transition">Generate Optimized Timetable</button>
+
+            <div id="admin-timetable" class="hidden">
+                <h3 class="text-xl font-bold mb-4">Generated Timetable</h3>
+                <div id="admin-grid" class="timetable-grid"></div>
+            </div>
+        </section>
+
+        <section id="student-view" class="card bg-white bg-opacity-20 p-6 rounded-lg mb-8 hidden">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Student Timetable View</h2>
+            <p class="mb-4 text-gray-700">View your personalized class schedule in real-time.</p>
+            <select id="student-filter" class="w-full md:w-1/2 px-3 py-2 border rounded mb-4">
+                <option value="">Select Your Student ID</option>
+            </select>
+            <div id="student-timetable" class="timetable-grid"></div>
+        </section>
+
+        <section id="faculty-view" class="card bg-white bg-opacity-20 p-6 rounded-lg mb-8 hidden">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Faculty Timetable View</h2>
+            <p class="mb-4 text-gray-700">Check your assigned classes and availability.</p>
+            <select id="faculty-filter" class="w-full md:w-1/2 px-3 py-2 border rounded mb-4">
+                <option value="">Select Your Faculty ID</option>
+            </select>
+            <div id="faculty-timetable" class="timetable-grid"></div>
+        </section>
+    </main>
+
+    <footer class="bg-black bg-opacity-20 text-center p-4 mt-12">
+        <p class="text-white">&copy; 2023 Class Timetable Automation System. Real-time access ensured with automatic conflict resolution.</p>
+    </footer>
+
+    <script>
+        // Start with completely empty data - no pre-loaded samples
+        let courses = [];
+        let faculty = [];
+        let rooms = [];
+        let timetable = {};
+
+        const days = ['Time', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const times = ['9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM'];
+
+        // Theme toggle
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.body.classList.toggle('theme-dark');
+            document.body.classList.toggle('theme-light');
+        });
+
+        // Clear data
+        document.getElementById('clear-data').addEventListener('click', () => {
+            localStorage.clear();
+            location.reload();
+        });
+
+        // Tab switching
+        const tabs = ['admin-panel', 'student-view', 'faculty-view'];
+        function showTab(tabId) {
+            tabs.forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+        }
+        document.getElementById('admin-tab').addEventListener('click', () => showTab('admin-panel'));
+        document.getElementById('student-tab').addEventListener('click', () => showTab('student-view'));
+        document.getElementById('faculty-tab').addEventListener('click', () => showTab('faculty-view'));
+        showTab('admin-panel');
+
+        // Show notification
+        function showNotification(message, type) {
+            const notif = document.createElement('div');
+            notif.className = `notification ${type}`;
+            notif.textContent = message;
+            document.getElementById('notifications').appendChild(notif);
+            setTimeout(() => notif.remove(), 3000);
+        }
+
+        // Function to check if we have minimum data to generate timetable
+        function canGenerateTimetable() {
+            return courses.length > 0 && faculty.length > 0 && rooms.length > 0;
+        }
+
+        // Function to auto-generate timetable when conditions are met
+        function autoGenerateIfPossible() {
+            if (canGenerateTimetable()) {
+                generateTimetable();
+            }
+        }
+
+        // Generate timetable function - OPTIMIZED ALGORITHM WITH DURATION CONTROL
+        function generateTimetable() {
+            if (!canGenerateTimetable()) {
+                showNotification('Add at least one course, faculty, and room first!', 'error');
+                return;
+            }
+
+            timetable = {};
+            const duration = parseInt(document.getElementById('duration').value) || 1;
+            
+            // Track what's used at each time slot and track hours per faculty
+            const usedFaculty = {}; // {day-time: [faculty_names]}
+            const usedRooms = {}; // {day-time: [room_names]}
+            const facultyHours = {}; // {faculty_name: total_hours}
+            const courseScheduleCount = {}; // {course_name: sessions_count}
+            const sessionsPerCourse = 3; // Each course gets 3 sessions per week
+            
+            // Initialize tracking
+            courses.forEach(c => courseScheduleCount[c.name] = 0);
+            faculty.forEach(f => facultyHours[f.name] = 0);
+            
+            // Optimized scheduling: Fill slots systematically
+            let courseIndex = 0;
+            let facultyIndex = 0;
+            let roomIndex = 0;
+            
+            days.slice(1).forEach(day => {
+                timetable[day] = {};
+                
+                let timeIndex = 0;
+                while (timeIndex < times.length) {
+                    const currentTime = times[timeIndex];
+                    const slotKey = `${day}-${currentTime}`;
+                    
+                    // Find next course that needs scheduling
+                    let assigned = false;
+                    let attempts = 0;
+                    
+                    while (!assigned && attempts < courses.length) {
+                        const course = courses[courseIndex % courses.length];
+                        
+                        // Check if this course still needs slots
+                        if (courseScheduleCount[course.name] < sessionsPerCourse) {
+                            // Find available faculty with capacity
+                            let foundFaculty = null;
+                            for (let i = 0; i < faculty.length; i++) {
+                                const fac = faculty[(facultyIndex + i) % faculty.length];
+                                
+                                // Check if faculty is free in this slot and hasn't exceeded hours
+                                const isFreeInSlot = !usedFaculty[slotKey] || !usedFaculty[slotKey].includes(fac.name);
+                                const hasCapacity = facultyHours[fac.name] + duration <= 6; // Max 6 hours per day
+                                
+                                if (isFreeInSlot && hasCapacity) {
+                                    // Check if faculty is free for continuous duration slots
+                                    let canFitDuration = true;
+                                    for (let d = 0; d < duration && timeIndex + d < times.length; d++) {
+                                        const futureSlotKey = `${day}-${times[timeIndex + d]}`;
+                                        if (usedFaculty[futureSlotKey] && usedFaculty[futureSlotKey].includes(fac.name)) {
+                                            canFitDuration = false;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (canFitDuration) {
+                                        foundFaculty = fac;
+                                        facultyIndex = (facultyIndex + i + 1) % faculty.length;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Find available room for the duration
+                            let foundRoom = null;
+                            for (let i = 0; i < rooms.length; i++) {
+                                const rm = rooms[(roomIndex + i) % rooms.length];
+                                
+                                // Check if room is free for continuous duration slots
+                                let roomFree = true;
+                                for (let d = 0; d < duration && timeIndex + d < times.length; d++) {
+                                    const futureSlotKey = `${day}-${times[timeIndex + d]}`;
+                                    if (usedRooms[futureSlotKey] && usedRooms[futureSlotKey].includes(rm.name)) {
+                                        roomFree = false;
+                                        break;
+                                    }
+                                }
+                                
+                                if (roomFree) {
+                                    foundRoom = rm;
+                                    roomIndex = (roomIndex + i + 1) % rooms.length;
+                                    break;
+                                }
+                            }
+                            
+                            // If both faculty and room available for full duration, assign
+                            if (foundFaculty && foundRoom && timeIndex + duration <= times.length) {
+                                // Assign the class for the specified duration
+                                for (let d = 0; d < duration; d++) {
+                                    const assignTime = times[timeIndex + d];
+                                    const assignSlotKey = `${day}-${assignTime}`;
+                                    
+                                    timetable[day][assignTime] = {
+                                        course: course.name,
+                                        faculty: foundFaculty.name,
+                                        room: foundRoom.name,
+                                        students: course.enrolled,
+                                        duration: duration,
+                                        sessionPart: `${d + 1}/${duration}` // e.g., "1/2" for first hour of 2-hour session
+                                    };
+                                    
+                                    // Mark slots as used
+                                    if (!usedFaculty[assignSlotKey]) usedFaculty[assignSlotKey] = [];
+                                    usedFaculty[assignSlotKey].push(foundFaculty.name);
+                                    
+                                    if (!usedRooms[assignSlotKey]) usedRooms[assignSlotKey] = [];
+                                    usedRooms[assignSlotKey].push(foundRoom.name);
+                                }
+                                
+                                // Update tracking
+                                facultyHours[foundFaculty.name] += duration;
+                                courseScheduleCount[course.name]++;
+                                assigned = true;
+                                timeIndex += duration; // Skip ahead by duration
+                            }
+                        }
+                        
+                        if (!assigned) {
+                            courseIndex = (courseIndex + 1) % courses.length;
+                            attempts++;
+                        }
+                    }
+                    
+                    if (!assigned) {
+                        timeIndex++; // Move to next slot if nothing assigned
+                    }
+                }
+            });
+            
+            localStorage.setItem('timetable', JSON.stringify(timetable));
+            renderTimetable('admin-grid', timetable);
+            document.getElementById('admin-timetable').classList.remove('hidden');
+            updateFilters();
+            
+            // Show statistics
+            const scheduledSlots = Object.values(timetable).reduce((sum, day) => sum + Object.keys(day).length, 0);
+            showNotification(`Timetable optimized! ${scheduledSlots} slots scheduled with ${duration}hr duration.`, 'success');
+        }
+
+        // Render timetable
+        function renderTimetable(gridId, data) {
+            const grid = document.getElementById(gridId);
+            grid.innerHTML = '';
+            
+            // Header row
+            days.forEach(day => {
+                const cell = document.createElement('div');
+                cell.className = 'time-slot font-bold bg-gray-200';
+                cell.textContent = day;
+                grid.appendChild(cell);
+            });
+            
+            // Track merged cells to skip rendering
+            const mergedCells = new Set();
+            
+            // Time slots
+            times.forEach((time, timeIdx) => {
+                const timeCell = document.createElement('div');
+                timeCell.className = 'time-slot font-bold bg-gray-200';
+                timeCell.textContent = time;
+                grid.appendChild(timeCell);
+                
+                days.slice(1).forEach(day => {
+                    const cellKey = `${day}-${time}`;
+                    
+                    // Skip if this cell is part of a merged session
+                    if (mergedCells.has(cellKey)) {
+                        return;
+                    }
+                    
+                    const cell = document.createElement('div');
+                    cell.className = 'time-slot';
+                    
+                    if (data[day] && data[day][time]) {
+                        const session = data[day][time];
+                        
+                        // Only show full details on first slot of multi-hour session
+                        if (session.sessionPart && session.sessionPart.startsWith('1/')) {
+                            cell.innerHTML = `
+                                <div class="font-semibold">${session.course}</div>
+                                <div class="text-xs">${session.faculty}</div>
+                                <div class="text-xs">${session.room}</div>
+                                <div class="text-xs font-bold text-blue-600">${session.duration}hr session</div>
+                            `;
+                            
+                            // Mark subsequent slots as merged
+                            for (let i = 1; i < session.duration; i++) {
+                                if (timeIdx + i < times.length) {
+                                    mergedCells.add(`${day}-${times[timeIdx + i]}`);
+                                }
+                            }
+                        } else if (!session.sessionPart) {
+                            // Single hour session (backward compatibility)
+                            cell.innerHTML = `
+                                <div class="font-semibold">${session.course}</div>
+                                <div class="text-xs">${session.faculty}</div>
+                                <div class="text-xs">${session.room}</div>
+                            `;
+                        }
+                    } else {
+                        cell.textContent = '-';
+                    }
+                    
+                    grid.appendChild(cell);
+                });
+            });
+        }
+
+        // Add course
+        document.getElementById('add-course').addEventListener('click', () => {
+            const name = document.getElementById('course-name').value.trim();
+            if (name && !courses.some(c => c.name === name)) {
+                const enrolled = [`S${String(courses.length + 1).padStart(3, '0')}1`, `S${String(courses.length + 1).padStart(3, '0')}2`, `S${String(courses.length + 1).padStart(3, '0')}3`];
+                courses.push({ name, enrolled });
+                localStorage.setItem('courses', JSON.stringify(courses));
+                document.getElementById('course-name').value = '';
+                showNotification('Course added successfully!', 'success');
+                autoGenerateIfPossible();
+            } else {
+                showNotification('Invalid or duplicate course name!', 'error');
+            }
+        });
+
+        // Add faculty
+        document.getElementById('add-faculty').addEventListener('click', () => {
+            const name = document.getElementById('faculty-name').value.trim();
+            if (name && !faculty.some(f => f.name === name)) {
+                faculty.push({ name, available: true });
+                localStorage.setItem('faculty', JSON.stringify(faculty));
+                document.getElementById('faculty-name').value = '';
+                showNotification('Faculty added successfully!', 'success');
+                autoGenerateIfPossible();
+            } else {
+                showNotification('Invalid or duplicate faculty name!', 'error');
+            }
+        });
+
+        // Add room
+        document.getElementById('add-room').addEventListener('click', () => {
+            const name = document.getElementById('room-name').value.trim();
+            if (name && !rooms.some(r => r.name === name)) {
+                rooms.push({ name, capacity: 50 });
+                localStorage.setItem('rooms', JSON.stringify(rooms));
+                document.getElementById('room-name').value = '';
+                showNotification('Room added successfully!', 'success');
+                autoGenerateIfPossible();
+            } else {
+                showNotification('Invalid or duplicate room name!', 'error');
+            }
+        });
+
+        // Manual generate timetable
+        document.getElementById('generate-timetable').addEventListener('click', () => {
+            generateTimetable();
+        });
+
+        // Update filters
+        function updateFilters() {
+            const studentSelect = document.getElementById('student-filter');
+            const facultySelect = document.getElementById('faculty-filter');
+            const allStudents = [...new Set(courses.flatMap(c => c.enrolled))];
+            studentSelect.innerHTML = '<option value="">Select Your Student ID</option>' + allStudents.map(s => `<option value="${s}">${s}</option>`).join('');
+            facultySelect.innerHTML = '<option value="">Select Your Faculty ID</option>' + faculty.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+        }
+
+        // Student filter
+        document.getElementById('student-filter').addEventListener('change', (e) => {
+            const selected = e.target.value;
+            if (selected) {
+                renderTimetable('student-timetable', filterByUser(selected, 'student'));
+            } else {
+                document.getElementById('student-timetable').innerHTML = '<p class="text-center text-gray-500 p-4">Select a student to view their timetable.</p>';
+            }
+        });
+
+        // Faculty filter
+        document.getElementById('faculty-filter').addEventListener('change', (e) => {
+            const selected = e.target.value;
+            if (selected) {
+                renderTimetable('faculty-timetable', filterByUser(selected, 'faculty'));
+            } else {
+                document.getElementById('faculty-timetable').innerHTML = '<p class="text-center text-gray-500 p-4">Select a faculty to view their timetable.</p>';
+            }
+        });
+
+        // Filter by user
+        function filterByUser(user, type) {
+            const filtered = {};
+            Object.keys(timetable).forEach(day => {
+                filtered[day] = {};
+                times.forEach(time => {
+                    if (timetable[day][time]) {
+                        const session = timetable[day][time];
+                        if ((type === 'faculty' && session.faculty === user) || (type === 'student' && session.students.includes(user))) {
+                            filtered[day][time] = session;
+                        }
+                    }
+                });
+            });
+            return filtered;
+        }
+
+        // Initialize
+        updateFilters();
+        if (Object.keys(timetable).length > 0) {
+            renderTimetable('admin-grid', timetable);
+            document.getElementById('admin-timetable').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
